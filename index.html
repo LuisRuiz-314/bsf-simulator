@@ -2,11 +2,11 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BSF Simulator - Mobile Optimized</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>BSF Simulator - Widescreen Mobile</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
-        /* Optimización absoluta del espacio en pantallas móviles */
+        /* Forzar al navegador a eliminar cualquier margen y usar el 100% real del espacio */
         html, body { 
             margin: 0; 
             padding: 0; 
@@ -16,12 +16,22 @@
             overflow: hidden; 
             font-family: 'Courier New', Courier, monospace;
         }
-        canvas { 
-            display: block; 
-            margin: 0 auto; 
+        
+        /* Contenedor inteligente adaptado a pantallas táctiles delgadas */
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            height: 100svh; /* Ajuste dinámico para ignorar la barra de navegación móvil */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            box-shadow: 0 0 30px rgba(0,255,100,0.2);
         }
         
-        /* Letrero inteligente: Solo se muestra si el usuario tiene el celular en vertical */
+        /* Alerta de rotación */
         #orientation-warning {
             display: none;
             position: fixed;
@@ -33,7 +43,7 @@
             justify-content: center;
             align-items: center;
             flex-direction: column;
-            font-size: 20px;
+            font-size: 18px;
             padding: 20px;
             box-sizing: border-box;
         }
@@ -46,8 +56,8 @@
 <body>
 
 <div id="orientation-warning">
-    <h2>🔄 POR FAVOR GIRA TU DISPOSITIVO</h2>
-    <p>Este panel de control bio-industrial requiere visualización en formato horizontal.</p>
+    <h2>🔄 POR FAVOR GIRA TU CELULAR</h2>
+    <p>El centro de comando bio-industrial requiere visualización horizontal.</p>
 </div>
 
 <div id="game-container"></div>
@@ -63,27 +73,28 @@ class MenuScene extends Phaser.Scene {
     constructor() { super({ key: 'MenuScene' }); }
 
     create() {
+        // Adaptación del grid al nuevo ancho panorámico
         let grid = this.add.graphics();
         grid.lineStyle(1, 0x112511, 1);
-        for (let x = 0; x < 1000; x += 40) grid.lineBetween(x, 0, x, 700);
-        for (let y = 0; y < 700; y += 40) grid.lineBetween(0, y, 1000, y);
+        for (let x = 0; x < 1100; x += 40) grid.lineBetween(x, 0, x, 600);
+        for (let y = 0; y < 600; y += 40) grid.lineBetween(0, y, 1100, y);
 
         let deco = this.add.graphics();
         deco.lineStyle(2, 0x00ff66, 0.5);
-        deco.strokeRect(20, 20, 960, 660);
+        deco.strokeRect(20, 20, 1060, 560);
 
-        this.add.text(500, 220, "BSF SIMULATOR", { 
+        this.add.text(550, 180, "BSF SIMULATOR", { 
             fontSize: '52px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' 
         }).setOrigin(0.5).setStroke('#003311', 8);
 
-        this.add.text(500, 280, "// BIOMASS PRODUCTION CORE //", { 
-            fontSize: '16px', fontFamily: 'monospace', fill: '#00d2ff' 
+        this.add.text(550, 240, "// BIOMASS PRODUCTION CORE //", { 
+            fontSize: '15px', fontFamily: 'monospace', fill: '#00d2ff' 
         }).setOrigin(0.5);
 
-        let btnIniciar = this.add.rectangle(500, 450, 320, 60, 0x142214).setInteractive();
+        let btnIniciar = this.add.rectangle(550, 380, 300, 60, 0x142214).setInteractive();
         btnIniciar.setStrokeStyle(2, 0x00ff66, 0.8);
         
-        let txtIniciar = this.add.text(500, 450, "[ INICIAR Y EXPANDIR ]", { 
+        let txtIniciar = this.add.text(550, 380, "[ INICIAR SIMULACIÓN ]", { 
             fontSize: '15px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#00ff66' 
         }).setOrigin(0.5);
 
@@ -91,23 +102,22 @@ class MenuScene extends Phaser.Scene {
         btnIniciar.on('pointerout', () => { btnIniciar.setFillStyle(0x142214); txtIniciar.setColor('#00ff66'); });
 
         btnIniciar.on('pointerdown', () => {
-            // Activa el modo pantalla completa en celulares para ocultar las barras de navegación
+            // Intenta activar pantalla completa si el dispositivo lo permite (Android)
             if (this.scale.fullscreenSupported && !this.scale.isFullscreen) {
                 this.scale.startFullscreen();
             }
-
             this.cameras.main.flash(300, 0, 255, 102);
             this.time.delayedCall(200, () => { this.scene.start('GameScene'); });
         });
 
-        this.add.text(500, 650, "SISTEMA OPTIMIZADO PARA MÓVIL // TACTIL ACTIVO", { 
+        this.add.text(550, 550, "SISTEMA OPTIMIZADO PARA TRABAJO PANORÁMICO", { 
             fontSize: '11px', fontFamily: 'monospace', fill: '#4a6b4a' 
         }).setOrigin(0.5);
     }
 }
 
 // ============================================================================
-// 2. ESCENA DE JUEGO ACTIVO
+// 2. ESCENA DE JUEGO ACTIVO (Rediseño de coordenadas para 1100x600)
 // ============================================================================
 class GameScene extends Phaser.Scene {
     constructor() { super({ key: 'GameScene' }); }
@@ -120,10 +130,11 @@ class GameScene extends Phaser.Scene {
         this.valorAlimentoCargado = 0; 
         this.nombreAlimentoCargado = "VACÍO";
 
+        // Zona de juego reducida a 900px de ancho para dejar 200px limpios al panel HUD derecho
         let grid = this.add.graphics();
         grid.lineStyle(1, 0x112511, 1);
-        for (let x = 0; x < 800; x += 40) grid.lineBetween(x, 0, x, 700);
-        for (let y = 0; y < 700; y += 40) grid.lineBetween(0, y, 800, y);
+        for (let x = 0; x < 900; x += 40) grid.lineBetween(x, 0, x, 600);
+        for (let y = 0; y < 600; y += 40) grid.lineBetween(0, y, 900, y);
 
         if (!this.textures.exists('granjeroTex')) {
             let gG = this.make.graphics({ x: 0, y: 0, add: false });
@@ -142,17 +153,18 @@ class GameScene extends Phaser.Scene {
             gB.generateTexture('bandejaTex', 150, 90);
         }
 
-        this.destino = new Phaser.Math.Vector2(400, 350);
-        this.granjero = this.physics.add.image(400, 350, 'granjeroTex').setDepth(10);
+        this.destino = new Phaser.Math.Vector2(450, 300);
+        this.granjero = this.physics.add.image(450, 300, 'granjeroTex').setDepth(10);
         this.granjero.setCollideWorldBounds(true);
 
         this.barraProgresoDias = this.add.graphics().setDepth(15);
 
+        // Ajuste de posición del panel derecho (ahora inicia en x=900)
         this.fondoPanelDerecho = this.add.graphics();
         this.fondoPanelDerecho.fillStyle(0x091109, 0.95);
-        this.fondoPanelDerecho.fillRect(800, 0, 200, 700);
+        this.fondoPanelDerecho.fillRect(900, 0, 200, 600);
         this.fondoPanelDerecho.lineStyle(4, 0x1f3d1f, 1);
-        this.fondoPanelDerecho.lineBetween(800, 0, 800, 700);
+        this.fondoPanelDerecho.lineBetween(900, 0, 900, 600);
 
         this.iniciarNivel();
 
@@ -171,7 +183,7 @@ class GameScene extends Phaser.Scene {
                 return;
             }
 
-            if (pointer.x < 800) { 
+            if (pointer.x < 900) { 
                 this.destino.x = pointer.x; 
                 this.destino.y = pointer.y;
                 this.physics.moveToObject(this.granjero, this.destino, 320);
@@ -180,6 +192,7 @@ class GameScene extends Phaser.Scene {
             }
         });
 
+        // Botones recolocados de manera más compacta en el panel lateral corto (alto 600)
         const opcionesAlimento = [
             { label: "⚡ HÚMEDO +5.0%", val: 5, color: 0x00ff66 },
             { label: "🟢 HÚMEDO +2.5%", val: 2.5, color: 0x00aa44 },
@@ -190,44 +203,37 @@ class GameScene extends Phaser.Scene {
         ];
         
         opcionesAlimento.forEach((item, i) => {
-            let yPos = 110 + (i * 68);
-            let btn = this.add.rectangle(900, yPos, 170, 48, 0x142214).setInteractive();
+            let yPos = 90 + (i * 62);
+            let btn = this.add.rectangle(1000, yPos, 170, 44, 0x142214).setInteractive();
             btn.setStrokeStyle(2, item.color, 0.6);
             
-            this.add.text(825, yPos - 8, item.label, { 
-                fontSize: '13px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#e0ffe0' 
+            this.add.text(920, yPos - 8, item.label, { 
+                fontSize: '12px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#e0ffe0' 
             });
             
-            btn.on('pointerover', () => { btn.setFillStyle(0x223c22); btn.setStrokeStyle(3, item.color, 1); });
-            btn.on('pointerout', () => { btn.setFillStyle(0x142214); btn.setStrokeStyle(2, item.color, 0.6); });
+            btn.on('pointerover', () => { btn.setStrokeStyle(3, item.color, 1); });
+            btn.on('pointerout', () => { btn.setStrokeStyle(2, item.color, 0.6); });
             btn.on('pointerdown', () => {
                 this.valorAlimentoCargado = item.val;
                 this.nombreAlimentoCargado = item.label.substring(2);
                 this.cameras.main.shake(40, 0.001);
-                btn.setFillStyle(item.color);
-                this.time.delayedCall(80, () => btn.setFillStyle(0x223c22));
+                btn.setItemColor = item.color;
             });
         });
 
-        let btnMezclarGlobal = this.add.rectangle(900, 590, 170, 58, 0x00ff66).setInteractive();
-        let txtMezclar = this.add.text(855, 578, "INYECTAR", { 
-            fontSize: '18px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#000000' 
+        let btnMezclarGlobal = this.add.rectangle(1000, 510, 170, 52, 0x00ff66).setInteractive();
+        let txtMezclar = this.add.text(955, 498, "INYECTAR", { 
+            fontSize: '17px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#000000' 
         });
         
-        btnMezclarGlobal.on('pointerover', () => { btnMezclarGlobal.setFillStyle(0x77ffaa); txtMezclar.setScale(1.05); });
-        btnMezclarGlobal.on('pointerout', () => { btnMezclarGlobal.setFillStyle(0x00ff66); txtMezclar.setScale(1); });
         btnMezclarGlobal.on('pointerdown', () => {
-            if (this.bandejaSeleccionada) {
-                this.procesarMezcla(this.bandejaSeleccionada);
-            } else {
-                this.cameras.main.flash(200, 100, 0, 0);
-            }
+            if (this.bandejaSeleccionada) this.procesarMezcla(this.bandejaSeleccionada);
+            else this.cameras.main.flash(200, 100, 0, 0);
         });
 
-        this.textoScore = this.add.text(25, 20, '', { fontSize: '20px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' });
-        this.textoScore.setStroke('#003311', 4);
-        this.textoHUD = this.add.text(25, 52, '', { fontSize: '13px', fontFamily: 'monospace', fill: '#a0bfa0' });
-        this.textoDias = this.add.text(675, 23, '', { fontSize: '14px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#00d2ff' });
+        this.textoScore = this.add.text(25, 20, '', { fontSize: '18px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' });
+        this.textoHUD = this.add.text(25, 50, '', { fontSize: '12px', fontFamily: 'monospace', fill: '#a0bfa0' });
+        this.textoDias = this.add.text(770, 23, '', { fontSize: '13px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#00d2ff' });
 
         this.time.addEvent({ delay: 1000, callback: this.updateClock, loop: true, callbackScope: this });
     }
@@ -237,13 +243,16 @@ class GameScene extends Phaser.Scene {
         this.bandejaSeleccionada = null;
 
         let numBandejas = 3 + ((nivelActual - 1) * 2);
+        if (numBandejas > 6) numBandejas = 6; // Limitamos a 6 bandejas máximas por tamaño móvil
         const cols = 3;
         
         for (let i = 0; i < numBandejas; i++) {
             let row = Math.floor(i / cols);
             let col = i % cols;
-            let x = 160 + (col * 240);
-            let y = 190 + (row * 160);
+            
+            // Repartición proporcional dentro de la nueva zona de juego de 900px
+            let x = 170 + (col * 280);
+            let y = 190 + (row * 200);
 
             let sprite = this.add.image(x, y, 'bandejaTex').setInteractive();
             
@@ -256,9 +265,7 @@ class GameScene extends Phaser.Scene {
                 completada: false,
                 muertas: 0,
                 barra: this.add.graphics(),
-                txtInfo: this.add.text(x - 55, y - 10, '', { 
-                    fontSize: '12px', fontFamily: 'monospace', fill: '#80ff80', lineSpacing: 4 
-                }).setDepth(5)
+                txtInfo: this.add.text(x - 55, y - 10, '', { fontSize: '12px', fontFamily: 'monospace', fill: '#80ff80', lineSpacing: 4 }).setDepth(5)
             };
 
             sprite.on('pointerdown', () => { this.bandejaSeleccionada = bObj; });
@@ -267,17 +274,13 @@ class GameScene extends Phaser.Scene {
     }
 
     procesarMezcla(bandeja) {
-        if (this.juegoTerminado) return;
-
+        if (this.juegoTerminado || bandeja.completada) return;
         let dist = Phaser.Math.Distance.Between(this.granjero.x, this.granjero.y, bandeja.sprite.x, bandeja.sprite.y);
         
         if (dist < 110) {
-            if (bandeja.completada) return;
-
             if (this.valorAlimentoCargado !== 0) {
                 bandeja.humedad += this.valorAlimentoCargado;
                 bandeja.humedad = Phaser.Math.Clamp(bandeja.humedad, 0, 100);
-                
                 bandeja.sprite.setTint(0x00ff66);
                 this.time.delayedCall(150, () => { if(bandeja.sprite) bandeja.sprite.clearTint(); });
             }
@@ -294,14 +297,8 @@ class GameScene extends Phaser.Scene {
         this.listaBandejas.forEach(b => {
             if (b.completada) return;
             b.humedad -= 0.8; 
-            
-            if (b.humedad >= 61 && b.humedad <= 80) {
-                b.maduracion += 1.0;
-            } else if (b.humedad < 61) {
-                b.maduracion += 0.5;
-                b.larvas -= 2;      
-                b.muertas += 2;
-            }
+            if (b.humedad >= 61 && b.humedad <= 80) b.maduracion += 1.0;
+            else if (b.humedad < 61) { b.maduracion += 0.5; b.larvas -= 2; b.muertas += 2; }
             
             if (b.larvas < 0) b.larvas = 0;
             if (b.maduracion >= 100) { b.maduracion = 100; b.completada = true; }
@@ -314,12 +311,9 @@ class GameScene extends Phaser.Scene {
         if (this.juegoTerminado) return;
         
         let dist = Phaser.Math.Distance.Between(this.granjero.x, this.granjero.y, this.destino.x, this.destino.y);
-        if (this.granjero.body.speed > 0 && dist < 10) {
-            this.granjero.body.reset(this.destino.x, this.destino.y);
-        }
+        if (this.granjero.body.speed > 0 && dist < 10) this.granjero.body.reset(this.destino.x, this.destino.y);
 
         this.textoScore.setText(`🧬 PROTOCOLO BIO-INDUSTRIAL // NIVEL 0${nivelActual}`);
-        
         let seleccionStatus = this.bandejaSeleccionada ? `LOTE #0${this.bandejaSeleccionada.id}` : "SELECCIONE OBJETIVO";
         this.textoHUD.setText(`Carga Carretilla : [ ${this.nombreAlimentoCargado} ]\nEstado Monitoreo: [ ${seleccionStatus} ]\nPuntos Globales : [ ${puntuacionAcumulada} PTS ]`);
 
@@ -328,13 +322,13 @@ class GameScene extends Phaser.Scene {
         if (diasSimulados > 30) diasSimulados = 30;
         
         this.barraProgresoDias.fillStyle(0x111c11);
-        this.barraProgresoDias.fillRect(400, 24, 260, 14);
+        this.barraProgresoDias.fillRect(490, 24, 260, 14);
         this.barraProgresoDias.lineStyle(1, 0x00d2ff, 0.5);
-        this.barraProgresoDias.strokeRect(400, 24, 260, 14);
+        this.barraProgresoDias.strokeRect(490, 24, 260, 14);
         
         let porcentajeTiempo = (180 - this.tiempoRestante) / 180;
         this.barraProgresoDias.fillStyle(0x00d2ff);
-        this.barraProgresoDias.fillRect(402, 26, 256 * porcentajeTiempo, 10);
+        this.barraProgresoDias.fillRect(492, 26, 256 * porcentajeTiempo, 10);
         
         this.textoDias.setText(`DÍA ${diasSimulados.toString().padStart(2, '0')}/30`);
 
@@ -342,7 +336,6 @@ class GameScene extends Phaser.Scene {
             b.barra.clear();
             b.barra.fillStyle(0x111811); 
             b.barra.fillRect(b.sprite.x - 55, b.sprite.y + 18, 110, 8);
-            
             b.barra.lineStyle(1, 0xffffff, 0.3);
             b.barra.strokeRect(b.sprite.x - 55 + 61, b.sprite.y + 16, 19, 12);
 
@@ -356,9 +349,6 @@ class GameScene extends Phaser.Scene {
             if (this.bandejaSeleccionada && this.bandejaSeleccionada.id === b.id) {
                 b.barra.lineStyle(2, 0x00d2ff, 1);
                 b.barra.strokeRoundedRect(b.sprite.x - 75, b.sprite.y - 45, 150, 90, 8);
-                b.barra.fillStyle(0x00d2ff);
-                b.barra.fillRect(b.sprite.x - 78, b.sprite.y - 48, 10, 3);
-                b.barra.fillRect(b.sprite.x - 78, b.sprite.y - 48, 3, 10);
             }
 
             if (b.completada) {
@@ -375,41 +365,36 @@ class GameScene extends Phaser.Scene {
     finalizarNivel() {
         this.juegoTerminado = true;
         let ptsNivel = 0;
-
         this.listaBandejas.forEach(b => {
             if (b.completada) ptsNivel += (b.larvas * 10);
             ptsNivel -= (b.muertas * 5);    
         });
-        
         puntuacionAcumulada += ptsNivel;
 
         if (nivelActual < 5) {
-            alert(`// INFORME DE RENDIMIENTO - LOTE 0${nivelActual} //\n\nResultados:\nEficiencia: +${ptsNivel} PTS.\nCargando siguiente fase...`);
+            alert(`// RENDIMIENTO LOTE 0${nivelActual} //\n\nEficiencia: +${ptsNivel} PTS.`);
             nivelActual++;
             this.scene.restart();
         } else {
-            alert(`// SIMULACIÓN COMPLETADA CON ÉXITO //\n\nEVALUACIÓN FINAL: ${puntuacionAcumulada} PUNTOS.`);
-            nivelActual = 1;
-            puntuacionAcumulada = 0;
+            alert(`// SIMULACIÓN COMPLETADA //\n\nEVALUACIÓN FINAL: ${puntuacionAcumulada} PUNTOS.`);
+            nivelActual = 1; puntuacionAcumulada = 0;
             this.scene.start('MenuScene');
         }
     }
 }
 
 // ============================================================================
-// CONFIGURACIÓN CENTRAL DE PHASER 3 (Ajustada para Pantalla Completa Móvil)
+// CONFIGURACIÓN PANORÁMICA COMPACTA
 // ============================================================================
 const config = {
     type: Phaser.AUTO,
-    width: 1000,
-    height: 700,
+    width: 1100, // Ajuste panorámico ideal para smartphones
+    height: 600,
     parent: 'game-container',
     physics: { default: 'arcade', arcade: { debug: false } },
     scale: { 
         mode: Phaser.Scale.FIT, 
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-        // Agregamos el gestor nativo de pantalla completa
-        fullscreenTarget: 'game-container'
+        autoCenter: Phaser.Scale.CENTER_BOTH
     },
     scene: [MenuScene, GameScene] 
 };
