@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>BSF Simulator - Scaled & Audio Edition</title>
+    <title>BSF Simulator - Mobile Native Fixed</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #060b06; overflow: hidden; font-family: 'Courier New', Courier, monospace; }
         #game-container { width: 100vw; height: 100vh; height: 100svh; display: flex; justify-content: center; align-items: center; }
-        #orientation-warning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #060b06; color: #00ff66; z-index: 9999; text-align: center; justify-content: center; align-items: center; flex-direction: column; font-size: 18px; padding: 20px; box-sizing: border-box; }
+        #orientation-warning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #060b06; color: #00ff66; z-index: 9999; text-align: center; justify-content: center; align-items: center; flex-direction: column; font-size: 20px; padding: 20px; box-sizing: border-box; }
         @media (orientation: portrait) { #orientation-warning { display: flex; } }
     </style>
 </head>
@@ -21,116 +21,113 @@
 
 <script>
 // ============================================================================
-// SINTETIZADOR NATIVO DE AUDIO (WEB AUDIO API) - SIN ARCHIVOS EXTERNOS
+// MOTOR DE AUDIO ROBUSTO PARA MÓVILES (WEB AUDIO API + PHASER CLOCK)
 // ============================================================================
 const AudioFX = {
     ctx: null,
-    bgmInterval: null,
     init() {
         if (!this.ctx) {
             this.ctx = new (window.AudioContext || window.webkitAudioContext)();
         }
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
     },
-    startBGM() {
+    playBGMStep(step) {
         this.init();
-        if (this.bgmInterval) return;
-        let step = 0;
-        // Bucle de música: Genera una atmósfera techno/industrial baja
-        this.bgmInterval = setInterval(() => {
-            try {
-                let osc = this.ctx.createOscillator();
-                let gain = this.ctx.createGain();
-                let filter = this.ctx.createBiquadFilter();
-                
-                osc.type = 'sawtooth';
-                // Secuencia de notas bajas de sintetizador
-                let notas = [55, 55, 65.41, 48.99, 55, 55, 73.42, 48.99];
-                osc.frequency.setValueAtTime(notas[step % notas.length], this.ctx.currentTime);
-                
-                filter.type = 'lowpass';
-                filter.frequency.setValueAtTime(180, this.ctx.currentTime);
-                
-                gain.gain.setValueAtTime(0.03, this.ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.45);
-                
-                osc.connect(filter);
-                filter.connect(gain);
-                gain.connect(this.ctx.destination);
-                
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.45);
-                step++;
-            } catch(e) {}
-        }, 550);
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        try {
+            let osc = this.ctx.createOscillator();
+            let gain = this.ctx.createGain();
+            let filter = this.ctx.createBiquadFilter();
+            
+            osc.type = 'sawtooth';
+            let notas = [55, 55, 65.41, 48.99, 55, 55, 73.42, 43.65];
+            osc.frequency.setValueAtTime(notas[step % notas.length], this.ctx.currentTime);
+            
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(220, this.ctx.currentTime);
+            
+            gain.gain.setValueAtTime(0.40, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.45);
+            
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+            
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.45);
+        } catch(e) {}
     },
     playMix() {
         this.init();
-        // Sonido de Inyección/Mezcla: Frecuencia ascendente tipo cyber
+        if (!this.ctx) return;
         let osc = this.ctx.createOscillator();
         let gain = this.ctx.createGain();
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(180, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(700, this.ctx.currentTime + 0.15);
+        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(850, this.ctx.currentTime + 0.12);
         
-        gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.12);
         
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start();
-        osc.stop(this.ctx.currentTime + 0.15);
+        osc.stop(this.ctx.currentTime + 0.12);
     },
     playWin() {
         this.init();
-        // Fanfarria de victoria: Arpegio triunfal ascendente
-        let notas = [261.63, 329.63, 392.00, 523.25, 659.25]; 
+        if (!this.ctx) return;
+        let notas = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99]; 
         notas.forEach((freq, idx) => {
             let osc = this.ctx.createOscillator();
             let gain = this.ctx.createGain();
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, this.ctx.currentTime + (idx * 0.08));
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime + (idx * 0.06));
             
-            gain.gain.setValueAtTime(0.15, this.ctx.currentTime + (idx * 0.08));
-            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + (idx * 0.08) + 0.25);
+            gain.gain.setValueAtTime(0.18, this.ctx.currentTime + (idx * 0.06));
+            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + (idx * 0.06) + 0.3);
             
             osc.connect(gain);
             gain.connect(this.ctx.destination);
-            osc.start(this.ctx.currentTime + (idx * 0.08));
-            osc.stop(this.ctx.currentTime + (idx * 0.08) + 0.25);
+            osc.start(this.ctx.currentTime + (idx * 0.06));
+            osc.stop(this.ctx.currentTime + (idx * 0.06) + 0.3);
         });
     }
 };
 
-// ============================================================================
-// CONFIGURACIÓN GLOBAL DEL JUEGO
-// ============================================================================
 let nivelActual = 1;
 let puntuacionAcumulada = 0;
 
+// ============================================================================
+// ESCENA: MENÚ PRINCIPAL
+// ============================================================================
 class MenuScene extends Phaser.Scene {
     constructor() { super({ key: 'MenuScene' }); }
     create() {
         let grid = this.add.graphics();
         grid.lineStyle(1, 0x112511, 1);
-        for (let x = 0; x < 1100; x += 40) grid.lineBetween(x, 0, x, 600);
-        for (let y = 0; y < 600; y += 40) grid.lineBetween(0, y, 1100, y);
+        for (let x = 0; x < 960; x += 40) grid.lineBetween(x, 0, x, 540);
+        for (let y = 0; y < 540; y += 40) grid.lineBetween(0, y, 540, y);
 
-        // AJUSTE +50%: Títulos y Textos más masivos
-        this.add.text(550, 200, "BSF SIMULATOR", { fontSize: '78px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' }).setOrigin(0.5).setStroke('#003311', 10);
-        this.add.text(550, 270, "// BIOMASS INDUSTRIAL CORE //", { fontSize: '22px', fontFamily: 'monospace', fill: '#00d2ff' }).setOrigin(0.5);
+        this.add.text(480, 180, "BSF SIMULATOR", { fontSize: '72px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' }).setOrigin(0.5).setStroke('#003311', 12);
+        this.add.text(480, 250, "// SYSTEM CORE UI //", { fontSize: '20px', fontFamily: 'monospace', fill: '#00d2ff' }).setOrigin(0.5);
         
-        // AJUSTE +50%: Botón de inicio gigante para pantallas táctiles (480x90)
-        let btn = this.add.rectangle(550, 430, 480, 90, 0x142214).setInteractive().setStrokeStyle(3, 0x00ff66, 0.8);
-        let txt = this.add.text(550, 430, "[ INICIAR PROTOCOLO ]", { fontSize: '22px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' }).setOrigin(0.5);
+        let btn = this.add.rectangle(480, 400, 460, 90, 0x142214).setInteractive().setStrokeStyle(3, 0x00ff66, 1);
+        this.add.text(480, 400, "[ INICIAR PROTOCOLO ]", { fontSize: '24px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' }).setOrigin(0.5);
         
         btn.on('pointerdown', () => { 
-            AudioFX.startBGM(); // Desbloquea y arranca el audio por interacción nativa
+            AudioFX.init(); 
             this.cameras.main.flash(300, 0, 255, 102); 
             this.time.delayedCall(200, () => this.scene.start('GameScene')); 
         });
     }
 }
 
+// ============================================================================
+// ESCENA: JUEGO ACTIVO (CON RELOJ DE TIEMPO RESTAURADO)
+// ============================================================================
 class GameScene extends Phaser.Scene {
     constructor() { super({ key: 'GameScene' }); }
 
@@ -141,51 +138,56 @@ class GameScene extends Phaser.Scene {
         this.bandejaSeleccionada = null;
         this.valorAlimentoCargado = 0; 
         this.nombreAlimentoCargado = "VACÍO";
-        this.botonesAlimentoRefs = []; // Almacén para gestionar iluminaciones de la UI
+        this.botonesAlimentoRefs = [];
+        this.bgmStep = 0;
+
+        // 1. Reloj de música de fondo
+        this.bgmTimer = this.time.addEvent({
+            delay: 500,
+            callback: () => { if(!this.juegoTerminado) { AudioFX.playBGMStep(this.bgmStep); this.bgmStep++; } },
+            loop: true
+        });
 
         let grid = this.add.graphics();
         grid.lineStyle(1, 0x112511, 1);
-        for (let x = 0; x < 900; x += 40) grid.lineBetween(x, 0, x, 600);
-        for (let y = 0; y < 600; y += 40) grid.lineBetween(0, y, 900, y);
+        for (let x = 0; x < 720; x += 40) grid.lineBetween(x, 0, x, 540);
+        for (let y = 0; y < 540; y += 40) grid.lineBetween(0, y, 720, y);
 
         if (!this.textures.exists('granjeroTex')) {
             let g = this.make.graphics({ x: 0, y: 0, add: false });
-            g.fillStyle(0x1a252c).fillCircle(20, 20, 18).lineStyle(3, 0x00d2ff).strokeCircle(20, 20, 16).fillStyle(0xffffff).fillRect(28, 16, 8, 8);
-            g.generateTexture('granjeroTex', 40, 40);
+            g.fillStyle(0x1a252c).fillCircle(24, 24, 22).lineStyle(4, 0x00d2ff).strokeCircle(24, 24, 20).fillStyle(0xffffff).fillRect(32, 20, 10, 8);
+            g.generateTexture('granjeroTex', 48, 48); 
         }
         if (!this.textures.exists('bandejaTex')) {
             let g = this.make.graphics({ x: 0, y: 0, add: false });
-            g.fillStyle(0x111611).fillRoundedRect(4, 4, 142, 82, 8).lineStyle(2, 0x223322).strokeRoundedRect(4, 4, 142, 82, 8);
-            g.generateTexture('bandejaTex', 150, 90);
+            g.fillStyle(0x111611).fillRoundedRect(4, 4, 172, 102, 10).lineStyle(3, 0x223322).strokeRoundedRect(4, 4, 172, 102, 10);
+            g.generateTexture('bandejaTex', 180, 110); 
         }
 
-        this.granjero = this.physics.add.image(450, 300, 'granjeroTex').setDepth(10);
-        this.destino = new Phaser.Math.Vector2(450, 300);
+        this.granjero = this.physics.add.image(360, 270, 'granjeroTex').setDepth(10);
+        this.destino = new Phaser.Math.Vector2(360, 270);
         this.barraProgresoDias = this.add.graphics().setDepth(15);
 
-        // Panel Lateral de Control
-        this.add.graphics().fillStyle(0x091109, 0.95).fillRect(900, 0, 200, 600).lineStyle(2, 0x1f3d1f).lineBetween(900, 0, 900, 600);
+        this.add.graphics().fillStyle(0x091109, 0.98).fillRect(720, 0, 240, 540).lineStyle(3, 0x1f3d1f).lineBetween(720, 0, 720, 540);
         
         this.iniciarNivel();
 
         this.input.on('pointerdown', (pointer, gameObjects) => {
+            AudioFX.init(); 
             if (this.juegoTerminado) return;
             if (gameObjects.length > 0 && gameObjects[0].texture && gameObjects[0].texture.key === 'bandejaTex') {
                 this.destino.setTo(gameObjects[0].x, gameObjects[0].y);
-                this.physics.moveToObject(this.granjero, this.destino, 350);
+                this.physics.moveToObject(this.granjero, this.destino, 360);
                 this.granjero.setRotation(Phaser.Math.Angle.Between(this.granjero.x, this.granjero.y, this.destino.x, this.destino.y));
                 return;
             }
-            if (pointer.x < 900) {
+            if (pointer.x < 720) {
                 this.destino.setTo(pointer.x, pointer.y);
-                this.physics.moveToObject(this.granjero, this.destino, 350);
+                this.physics.moveToObject(this.granjero, this.destino, 360);
                 this.granjero.setRotation(Phaser.Math.Angle.Between(this.granjero.x, this.granjero.y, this.destino.x, this.destino.y));
             }
         });
 
-        // ============================================================================
-        // BOTONES DE ALIMENTO (AJUSTE +50% EN ALTO Y TEXTOS + DESTACADO VISUAL)
-        // ============================================================================
         const alims = [
             { label: "⚡ HUM +5.0%", val: 5, col: 0x00ff66 },
             { label: "🟢 HUM +2.5%", val: 2.5, col: 0x00aa44 },
@@ -196,44 +198,42 @@ class GameScene extends Phaser.Scene {
         ];
 
         alims.forEach((a, i) => {
-            let yPos = 65 + (i * 68);
-            // Botones maximizados a 190px de ancho y 62px de alto (Casi +50%)
-            let btnBox = this.add.rectangle(1000, yPos, 190, 62, 0x142214).setInteractive().setStrokeStyle(1, a.col, 0.4);
-            let btnTxt = this.add.text(912, yPos - 10, a.label, { fontSize: '16px', fontFamily: 'monospace', fill: '#ffffff', fontWeight: 'bold' });
+            let yPos = 48 + (i * 64);
+            let btnBox = this.add.rectangle(840, yPos, 215, 54, 0x142214).setInteractive().setStrokeStyle(1, a.col, 0.5);
+            let btnTxt = this.add.text(750, yPos - 11, a.label, { fontSize: '16px', fontFamily: 'monospace', fill: '#ffffff', fontWeight: 'bold' });
             
             this.botonesAlimentoRefs.push({ box: btnBox, txt: btnTxt, config: a });
 
             btnBox.on('pointerdown', () => {
                 this.valorAlimentoCargado = a.val;
                 this.nombreAlimentoCargado = a.label.substring(2);
-                this.cameras.main.shake(30, 0.001);
                 
-                // Sistema de Destacado: Limpia los otros y enciende el seleccionado
                 this.botonesAlimentoRefs.forEach(b => {
                     b.box.setFillStyle(0x142214);
-                    b.box.setStrokeStyle(1, b.config.col, 0.4);
-                    b.txt.setColor('#ffffff');
+                    b.box.setStrokeStyle(1, b.config.col, 0.5);
+                    b.txt.setColor('#ffffff').setScale(1);
                 });
-                btnBox.setFillStyle(0x1a331a); // Fondo más claro de actividad
-                btnBox.setStrokeStyle(4, a.col, 1);    // Borde grueso de alta visibilidad
-                btnTxt.setColor('#00ff66');            // Texto brillante
+                btnBox.setFillStyle(0x1b381b); 
+                btnBox.setStrokeStyle(4, 0xffffff, 1); 
+                btnTxt.setColor('#00ff66').setScale(1.05); 
             });
         });
 
-        // AJUSTE +50%: BOTÓN MEZCLAR BANDEJA GRANDE (Alto 80px, Texto 20px)
-        let btnMezclar = this.add.rectangle(1000, 525, 190, 80, 0x00ff66).setInteractive();
-        let txtMezclar = this.add.text(1000, 525, "MEZCLAR\nBANDEJA", { fontSize: '20px', fontFamily: 'monospace', fill: '#000000', fontWeight: 'bold', align: 'center' }).setOrigin(0.5);
+        let btnMezclar = this.add.rectangle(840, 485, 215, 75, 0x00ff66).setInteractive();
+        this.add.text(840, 485, "MEZCLAR\nBANDEJA", { fontSize: '22px', fontFamily: 'monospace', fill: '#000000', fontWeight: 'bold', align: 'center' }).setOrigin(0.5);
         
         btnMezclar.on('pointerdown', () => {
             if (this.bandejaSeleccionada) this.procesarMezcla(this.bandejaSeleccionada);
             else this.cameras.main.flash(200, 100, 0, 0);
         });
 
-        // AJUSTE +50%: Textos del HUD de Monitoreo General
         this.textoScore = this.add.text(25, 20, '', { fontSize: '24px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' });
-        this.textoHUD = this.add.text(25, 55, '', { fontSize: '16px', fontFamily: 'monospace', fill: '#a0bfa0', lineSpacing: 4 });
-        this.textoDias = this.add.text(760, 23, '', { fontSize: '18px', fontFamily: 'monospace', fill: '#00d2ff', fontWeight: 'bold' });
+        this.textoHUD = this.add.text(25, 55, '', { fontSize: '16px', fontFamily: 'monospace', fill: '#a0bfa0', lineSpacing: 5 });
+        this.textoDias = this.add.text(610, 23, '', { fontSize: '18px', fontFamily: 'monospace', fill: '#00d2ff', fontWeight: 'bold' });
 
+        // ============================================================================
+        // 🔄 LA LÍNEA DETECTADA COMO FALTANTE COREGIDA AQUÍ:
+        // ============================================================================
         this.time.addEvent({ delay: 1000, callback: this.updateClock, loop: true, callbackScope: this });
     }
 
@@ -243,13 +243,12 @@ class GameScene extends Phaser.Scene {
         let num = 3 + ((nivelActual - 1) * 2);
         if (num > 6) num = 6;
         for (let i = 0; i < num; i++) {
-            let x = 180 + ((i % 3) * 280);
-            let y = 200 + (Math.floor(i / 3) * 210);
+            let x = 150 + ((i % 3) * 215);
+            let y = 195 + (Math.floor(i / 3) * 220);
             let sprite = this.add.image(x, y, 'bandejaTex').setInteractive();
             let b = {
                 sprite: sprite, id: i + 1, humedad: 70, larvas: 1000, maduracion: 0, completada: false, muertas: 0, barra: this.add.graphics(),
-                // AJUSTE +50%: Fuentes de la bandeja escaladas y reubicadas más arriba (y - 75) para no encimarse
-                txtInfo: this.add.text(x - 65, y - 75, '', { fontSize: '16px', fontFamily: 'monospace', fill: '#80ff80', lineSpacing: 3 }).setDepth(5)
+                txtInfo: this.add.text(x - 78, y - 88, '', { fontSize: '15px', fontFamily: 'monospace', fill: '#80ff80', fontWeight: 'bold', lineSpacing: 4 }).setDepth(5)
             };
             sprite.on('pointerdown', () => this.bandejaSeleccionada = b);
             this.listaBandejas.push(b);
@@ -258,11 +257,11 @@ class GameScene extends Phaser.Scene {
 
     procesarMezcla(b) {
         if (this.juegoTerminado || b.completada) return;
-        if (Phaser.Math.Distance.Between(this.granjero.x, this.granjero.y, b.sprite.x, b.sprite.y) < 110) {
+        if (Phaser.Math.Distance.Between(this.granjero.x, this.granjero.y, b.sprite.x, b.sprite.y) < 130) {
             if (this.valorAlimentoCargado !== 0) {
                 b.humedad = Phaser.Math.Clamp(b.humedad + this.valorAlimentoCargado, 0, 100);
                 b.sprite.setTint(0x00ff66);
-                AudioFX.playMix(); // EFECTO DE SONIDO: Mezcla exitosa
+                AudioFX.playMix(); 
                 this.time.delayedCall(150, () => b.sprite.clearTint());
             }
         } else {
@@ -282,11 +281,8 @@ class GameScene extends Phaser.Scene {
             if (b.maduracion >= 100) { b.maduracion = 100; b.completada = true; }
         });
 
-        if (this.listaBandejas.every(b => b.completada)) {
-            this.finalizarNivel(true); 
-        } else if (this.tiempoRestante <= 0) {
-            this.finalizarNivel(false);
-        }
+        if (this.listaBandejas.every(b => b.completada)) this.finalizarNivel(true);
+        else if (this.tiempoRestante <= 0) this.finalizarNivel(false);
     }
 
     update() {
@@ -296,16 +292,19 @@ class GameScene extends Phaser.Scene {
         this.textoScore.setText(`PROTOCOLO NIVEL 0${nivelActual}`);
         this.textoHUD.setText(`Carga : [ ${this.nombreAlimentoCargado} ]\nLote  : [ ${this.bandejaSeleccionada ? '0'+this.bandejaSeleccionada.id : '---'} ]\nPuntos: [ ${puntuacionAcumulada} ]`);
 
-        this.barraProgresoDias.clear().fillStyle(0x111c11).fillRect(490, 24, 260, 14).lineStyle(1, 0x00d2ff, 0.5).strokeRect(490, 24, 260, 14);
-        this.barraProgresoDias.fillStyle(0x00d2ff).fillRect(492, 26, 256 * ((180 - this.tiempoRestante) / 180), 10);
+        this.barraProgresoDias.clear().fillStyle(0x111c11).fillRect(360, 24, 230, 14).lineStyle(1, 0x00d2ff, 0.5).strokeRect(360, 24, 230, 14);
+        this.barraProgresoDias.fillStyle(0x00d2ff).fillRect(362, 26, 226 * ((180 - this.tiempoRestante) / 180), 10);
         let diaAct = Math.floor(((180 - this.tiempoRestante) / 180) * 30) + 1;
         this.textoDias.setText(`DÍA ${diaAct > 30 ? 30 : diaAct.toString().padStart(2, '0')}/30`);
 
         this.listaBandejas.forEach(b => {
-            b.barra.clear().fillStyle(0x000000).fillRect(b.sprite.x - 55, b.sprite.y + 22, 110, 10);
+            b.barra.clear().fillStyle(0x000000).fillRect(b.sprite.x - 70, b.sprite.y + 26, 140, 12);
             let col = b.humedad < 61 ? 0xff3333 : (b.humedad > 80 ? 0xffcc00 : 0x00ff66);
-            b.barra.fillStyle(col).fillRect(b.sprite.x - 55, b.sprite.y + 22, b.humedad * 1.1, 10);
-            if (this.bandejaSeleccionada && this.bandejaSeleccionada.id === b.id) b.barra.lineStyle(3, 0x00d2ff).strokeRoundedRect(b.sprite.x - 75, b.sprite.y - 48, 150, 96, 8);
+            b.barra.fillStyle(col).fillRect(b.sprite.x - 70, b.sprite.y + 26, b.humedad * 1.4, 12);
+            
+            if (this.bandejaSeleccionada && this.bandejaSeleccionada.id === b.id) {
+                b.barra.lineStyle(4, 0x00d2ff).strokeRoundedRect(b.sprite.x - 94, b.sprite.y - 58, 188, 116, 10);
+            }
 
             if (b.completada) {
                 b.txtInfo.setText(`LOTE #0${b.id} READY\nPOB: ${b.larvas.toFixed(0)}`).setColor('#00ff66');
@@ -317,6 +316,8 @@ class GameScene extends Phaser.Scene {
 
     finalizarNivel(victoriaTemprana) {
         this.juegoTerminado = true;
+        if(this.bgmTimer) this.bgmTimer.destroy();
+        
         let ptsNivel = 0;
         let bonus = 0;
 
@@ -332,7 +333,7 @@ class GameScene extends Phaser.Scene {
                 bonus = diasRestantes * 100;
                 ptsNivel += bonus;
             }
-            AudioFX.playWin(); // EFECTO DE SONIDO: Celebración de nivel completado
+            AudioFX.playWin(); 
         }
         
         puntuacionAcumulada += ptsNivel;
@@ -341,7 +342,7 @@ class GameScene extends Phaser.Scene {
         msg += victoriaTemprana ? `¡COSECHA ANTICIPADA!\nBono Tiempo: +${bonus} PTS\n` : `TIEMPO AGOTADO.\n`;
         msg += `Total Ronda: ${ptsNivel} PTS.`;
         
-        this.time.delayedCall(300, () => {
+        this.time.delayedCall(400, () => {
             alert(msg);
             if (nivelActual < 5) {
                 nivelActual++; this.scene.restart();
@@ -354,7 +355,7 @@ class GameScene extends Phaser.Scene {
 }
 
 const config = {
-    type: Phaser.AUTO, width: 1100, height: 600, parent: 'game-container',
+    type: Phaser.AUTO, width: 960, height: 540, parent: 'game-container',
     physics: { default: 'arcade', arcade: { debug: false } },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     scene: [MenuScene, GameScene] 
