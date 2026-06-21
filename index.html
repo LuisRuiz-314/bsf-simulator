@@ -244,12 +244,23 @@ class GameScene extends Phaser.Scene {
         if (num > 6) num = 6;
         for (let i = 0; i < num; i++) {
             let x = 150 + ((i % 3) * 215);
-            let y = 235 + (Math.floor(i / 3) * 220);
+            let y = 190 + (Math.floor(i / 3) * 220);
             let sprite = this.add.image(x, y, 'bandejaTex').setInteractive();
             let b = {
-                sprite: sprite, id: i + 1, humedad: 70, larvas: 1000, maduracion: 0, completada: false, muertas: 0, barra: this.add.graphics(),
-                txtInfo: this.add.text(x - 70, y - 40, '', { fontSize: '15px', fontFamily: 'monospace', fill: '#80ff80', fontWeight: 'bold', lineSpacing: 4 }).setDepth(5)
-            };
+				sprite: sprite, 
+				id: i + 1, 
+				humedad: 70, 
+				larvas: 1000, 
+				maduracion: 0, 
+				completada: false, 
+				muertas: 0, 
+				barra: this.add.graphics(),
+    
+				// 1. TEXTO PRINCIPAL (Se queda arriba: 88px arriba del centro)
+				txtInfo: this.add.text(x - 70, y - 40, '', { fontSize: '15px', fontFamily: 'monospace', fill: '#80ff80', fontWeight: 'bold', lineSpacing: 4 }).setDepth(5),
+				// 2. NUEVO TEXTO INDEPENDIENTE PARA LARVAS (Configurado por defecto 45px ABAJO del centro)
+				txtLarvas: this.add.text(x - 70, y + 60, '', { fontSize: '15px', fontFamily: 'monospace', fill: '#ffffff', fontWeight: 'bold' }).setDepth(5)
+			};
             sprite.on('pointerdown', () => this.bandejaSeleccionada = b);
             this.listaBandejas.push(b);
         }
@@ -298,20 +309,43 @@ class GameScene extends Phaser.Scene {
         this.textoDias.setText(`DÍA ${diaAct > 30 ? 30 : diaAct.toString().padStart(2, '0')}/30`);
 
         this.listaBandejas.forEach(b => {
-            b.barra.clear().fillStyle(0x000000).fillRect(b.sprite.x - 70, b.sprite.y + 26, 140, 12);
-            let col = b.humedad < 61 ? 0xff3333 : (b.humedad > 80 ? 0xffcc00 : 0x00ff66);
-            b.barra.fillStyle(col).fillRect(b.sprite.x - 70, b.sprite.y + 26, b.humedad * 1.4, 12);
-            
-            if (this.bandejaSeleccionada && this.bandejaSeleccionada.id === b.id) {
-                b.barra.lineStyle(4, 0x00d2ff).strokeRoundedRect(b.sprite.x - 94, b.sprite.y - 58, 188, 116, 10);
-            }
+			b.barra.clear();
 
-            if (b.completada) {
-                b.txtInfo.setText(`LOTE #0${b.id} READY\nPOB: ${b.larvas.toFixed(0)}`).setColor('#00ff66');
-            } else {
-                b.txtInfo.setText(`LOTE #0${b.id}\nHUM: ${b.humedad.toFixed(1)}%\nMAD: ${b.maduracion.toFixed(1)}%`).setColor(col === 0xff3333 ? '#ff8888' : '#ffffff');
-            }
-        });
+			// 1. FONDO NEGRO INTERIOR (Encogido 1px por lado para dar espacio al contorno)
+			b.barra.fillStyle(0x000000); 
+			b.barra.fillRect(b.sprite.x - 69, b.sprite.y + 27, 138, 10);
+
+			// 2. LÓGICA DE COLOR (Exactamente igual a tu captura)
+			let col = b.humedad < 61 ? 0xff3333 : (b.humedad > 80 ? 0xffcc00 : 0x00ff66);
+    
+			// 3. RELLENO DE HUMEDAD REAL (Ajustado proporcionalmente a 1.38 para no salirse del interior)
+			b.barra.fillStyle(col);
+			b.barra.fillRect(b.sprite.x - 69, b.sprite.y + 27, b.humedad * 1.38, 10);
+    
+			// 4. ¡NUEVO! CONTORNO GRIS METÁLICO DEFINIDO
+			b.barra.lineStyle(2, 0x888888, 0.8);
+			b.barra.strokeRect(b.sprite.x - 70, b.sprite.y + 26, 140, 12);
+
+			// 5. RECUADRO AZUL DE SELECCIÓN DE BANDEJA
+			if (this.bandejaSeleccionada && this.bandejaSeleccionada.id === b.id) {
+				b.barra.lineStyle(4, 0x00d2ff).strokeRoundedRect(b.sprite.x - 94, b.sprite.y - 58, 188, 116, 10);
+			}
+
+			// ============================================================================
+			// 📝 TEXTOS INDEPENDIENTES ACTUALIZADOS
+			// ============================================================================
+			if (b.completada) {
+				// Texto de estado listo
+				b.txtInfo.setText(`LOTE #0${b.id} READY`).setColor('#00ff66');
+				// Población final en su ubicación independiente
+				b.txtLarvas.setText(`POB: ${b.larvas.toFixed(0)}`).setColor('#00ff66');
+			} else {
+				// Texto principal sin larvas (termina en MAD)
+				b.txtInfo.setText(`LOTE #0${b.id}\nHUM: ${b.humedad.toFixed(1)}%\nMAD: ${b.maduracion.toFixed(1)}%`).setColor(col === 0xff3333 ? '#ff8888' : '#ffffff');
+				// Conteo de larvas en su ubicación independiente (se pone rojo si están muriendo)
+				b.txtLarvas.setText(`LARV: ${b.larvas.toFixed(0)}`).setColor(col === 0xff3333 ? '#ff3333' : '#00ff66');
+			}
+		});
     }
 
     finalizarNivel(victoriaTemprana) {
