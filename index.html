@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BSF Simulator - Sistema de Escenas Híbrido</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; background-color: #060b06; overflow: hidden; font-family: 'Courier New', Courier, monospace; }
+        canvas { display: block; margin: 0 auto; box-shadow: 0 0 30px rgba(0,255,100,0.2); }
+    </style>
+</head>
+<body>
+
+<div id="game-container"></div>
+
+<script>
+// ============================================================================
+// VARIABLES GLOBALES (Persisten entre transiciones de escenas)
+// ============================================================================
+let nivelActual = 1;
+let puntuacionAcumulada = 0;
+
+// ============================================================================
+// 1. ESCENA DE MENÚ PRINCIPAL (MenuScene)
+// ============================================================================
+class MenuScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'MenuScene' });
+    }
+
+    preload() {
+        // Aquí se cargarían assets externos si los hubiera
+    }
+
+    create() {
+        // Fondo de malla tecnológica
+        let grid = this.add.graphics();
+        grid.lineStyle(1, 0x112511, 1);
+        for (let x = 0; x < 1000; x += 40) grid.lineBetween(x, 0, x, 700);
+        for (let y = 0; y < 700; y += 40) grid.lineBetween(0, y, 1000, y);
+
+        // Decoración HUD de esquina
+        let deco = this.add.graphics();
+        deco.lineStyle(2, 0x00ff66, 0.5);
+        deco.strokeRect(20, 20, 960, 660);
+
+        // Textos del Título Principal
+        this.add.text(500, 220, "BSF SIMULATOR", { 
+            fontSize: '52px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' 
+        }).setOrigin(0.5).setStroke('#003311', 8);
+
+        this.add.text(500, 280, "// BIOMASS PRODUCTION CORE //", { 
+            fontSize: '16px', fontFamily: 'monospace', fill: '#00d2ff' 
+        }).setOrigin(0.5);
+
+        // Botón Interactuable Centralizado
+        let btnIniciar = this.add.rectangle(500, 450, 280, 60, 0x142214).setInteractive();
+        btnIniciar.setStrokeStyle(2, 0x00ff66, 0.8);
+        
+        let txtIniciar = this.add.text(500, 450, "[ INICIAR PROTOCOLO ]", { 
+            fontSize: '16px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#00ff66' 
+        }).setOrigin(0.5);
+
+        // Efectos del Botón (Feedback Visual)
+        btnIniciar.on('pointerover', () => {
+            btnIniciar.setFillStyle(0x00ff66);
+            txtIniciar.setColor('#000000');
+            this.cameras.main.shake(30, 0.001);
+        });
+
+        btnIniciar.on('pointerout', () => {
+            btnIniciar.setFillStyle(0x142214);
+            txtIniciar.setColor('#00ff66');
+        });
+
+        btnIniciar.on('pointerdown', () => {
+            // Flash de transición y salto inmediato a la escena de simulación
+            this.cameras.main.flash(300, 0, 255, 102);
+            this.time.delayedCall(200, () => {
+                this.scene.start('GameScene');
+            });
+        });
+
+        // Créditos inferiores
+        this.add.text(500, 650, "SISTEMA OPERATIVO BIO-TECH V1.0 // AUTÓNOMO", { 
+            fontSize: '11px', fontFamily: 'monospace', fill: '#4a6b4a' 
+        }).setOrigin(0.5);
+    }
+}
+
+// ============================================================================
+// 2. ESCENA DE JUEGO ACTIVO (GameScene)
+// ============================================================================
+class GameScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'GameScene' });
+    }
+
+    create() {
+        // Variables internas de la ronda actual
+        this.tiempoRestante = 180;
+        this.juegoTerminado = false;
+        this.listaBandejas = [];
+        this.bandejaSeleccionada = null;
+        this.valorAlimentoCargado = 0; 
+        this.nombreAlimentoCargado = "VACÍO";
+
+        // Malla del suelo de la fábrica
+        let grid = this.add.graphics();
+        grid.lineStyle(1, 0x112511, 1);
+        for (let x = 0; x < 800; x += 40) grid.lineBetween(x, 0, x, 700);
+        for (let y = 0; y < 700; y += 40) grid.lineBetween(0, y, 800, y);
+
+        // --- TEXTURAS DINÁMICAS (Inyección segura en el ciclo local) ---
+        if (!this.textures.exists('granjeroTex')) {
+            let gG = this.make.graphics({ x: 0, y: 0, add: false });
+            gG.fillStyle(0x1a252c, 1); gG.fillCircle(20, 20, 18);
+            gG.lineStyle(3, 0x00d2ff, 1); gG.strokeCircle(20, 20, 16);
+            gG.fillStyle(0x00d2ff, 1); gG.fillCircle(20, 20, 6);
+            gG.fillStyle(0xffffff, 1); gG.fillRect(28, 16, 8, 8);
+            gG.generateTexture('granjeroTex', 40, 40);
+        }
+
+        if (!this.textures.exists('bandejaTex')) {
+            let gB = this.make.graphics({ x: 0, y: 0, add: false });
+            gB.fillStyle(0x181f18, 1); gB.fillRoundedRect(4, 4, 142, 82, 8);
+            gB.lineStyle(3, 0x334e33, 1); gB.strokeRoundedRect(4, 4, 142, 82, 8);
+            gB.fillStyle(0x222e22, 1); gB.fillRect(12, 12, 126, 42);
+            gB.generateTexture('bandejaTex', 150, 90);
+        }
+
+        // Configuración Física del Drone
+        this.destino = new Phaser.Math.Vector2(400, 350);
+        this.granjero = this.physics.add.image(400, 350, 'granjeroTex').setDepth(10);
+        this.granjero.setCollideWorldBounds(true);
+
+        this.barraProgresoDias = this.add.graphics().setDepth(15);
+
+        // Panel Lateral de Mandos Derecho
+        this.fondoPanelDerecho = this.add.graphics();
+        this.fondoPanelDerecho.fillStyle(0x091109, 0.95);
+        this.fondoPanelDerecho.fillRect(800, 0, 200, 700);
+        this.fondoPanelDerecho.lineStyle(4, 0x1f3d1f, 1);
+        this.fondoPanelDerecho.lineBetween(800, 0, 800, 700);
+
+        // Desplegar lotes de producción
+        this.iniciarNivel();
+
+        // Control de Clicks Integrado en la Escena
+        this.input.on('pointerdown', (pointer, gameObjects) => {
+            if (this.juegoTerminado) return;
+            
+            if (gameObjects.length > 0) {
+                let objetoClickeado = gameObjects[0];
+                if (objetoClickeado.texture && objetoClickeado.texture.key === 'bandejaTex') {
+                    this.destino.x = objetoClickeado.x; 
+                    this.destino.y = objetoClickeado.y;
+                    this.physics.moveToObject(this.granjero, this.destino, 320);
+                    
+                    let angle = Phaser.Math.Angle.Between(this.granjero.x, this.granjero.y, this.destino.x, this.destino.y);
+                    this.granjero.setRotation(angle);
+                }
+                return;
+            }
+
+            if (pointer.x < 800) { 
+                this.destino.x = pointer.x; 
+                this.destino.y = pointer.y;
+                this.physics.moveToObject(this.granjero, this.destino, 320);
+                let angle = Phaser.Math.Angle.Between(this.granjero.x, this.granjero.y, this.destino.x, this.destino.y);
+                this.granjero.setRotation(angle);
+            }
+        });
+
+        // Construcción del Teclado Numérico de Sustratos
+        const opcionesAlimento = [
+            { label: "⚡ HÚMEDO +5.0%", val: 5, color: 0x00ff66 },
+            { label: "🟢 HÚMEDO +2.5%", val: 2.5, color: 0x00aa44 },
+            { label: "🔹 HÚMEDO +1.0%", val: 1, color: 0x0088cc },
+            { label: "🔸 SECO -1.0%", val: -1, color: 0xffaa00 },
+            { label: "🔴 SECO -2.5%", val: -2.5, color: 0xcc3300 },
+            { label: "🔥 SECO -5.0%", val: -5, color: 0xff3333 }
+        ];
+        
+        opcionesAlimento.forEach((item, i) => {
+            let yPos = 110 + (i * 68);
+            let btn = this.add.rectangle(900, yPos, 170, 48, 0x142214).setInteractive();
+            btn.setStrokeStyle(2, item.color, 0.6);
+            
+            this.add.text(825, yPos - 8, item.label, { 
+                fontSize: '13px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#e0ffe0' 
+            });
+            
+            btn.on('pointerover', () => { btn.setFillStyle(0x223c22); btn.setStrokeStyle(3, item.color, 1); });
+            btn.on('pointerout', () => { btn.setFillStyle(0x142214); btn.setStrokeStyle(2, item.color, 0.6); });
+            
+            btn.on('pointerdown', () => {
+                this.valorAlimentoCargado = item.val;
+                this.nombreAlimentoCargado = item.label.substring(2);
+                this.cameras.main.shake(40, 0.001);
+                btn.setFillStyle(item.color);
+                this.time.delayedCall(80, () => btn.setFillStyle(0x223c22));
+            });
+        });
+
+        // Botón Unificado de Inyección Hidráulica
+        let btnMezclarGlobal = this.add.rectangle(900, 590, 170, 58, 0x00ff66).setInteractive();
+        let txtMezclar = this.add.text(855, 578, "INYECTAR", { 
+            fontSize: '18px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#000000' 
+        });
+        
+        btnMezclarGlobal.on('pointerover', () => { btnMezclarGlobal.setFillStyle(0x77ffaa); txtMezclar.setScale(1.05); });
+        btnMezclarGlobal.on('pointerout', () => { btnMezclarGlobal.setFillStyle(0x00ff66); txtMezclar.setScale(1); });
+        
+        btnMezclarGlobal.on('pointerdown', () => {
+            if (this.bandejaSeleccionada) {
+                this.procesarMezcla(this.bandejaSeleccionada);
+            } else {
+                this.cameras.main.flash(200, 100, 0, 0);
+            }
+        });
+
+        // Textos del HUD Superior Estables
+        this.textoScore = this.add.text(25, 20, '', { fontSize: '20px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' });
+        this.textoScore.setStroke('#003311', 4);
+        this.textoHUD = this.add.text(25, 52, '', { fontSize: '13px', fontFamily: 'monospace', fill: '#a0bfa0' });
+        this.textoDias = this.add.text(675, 23, '', { fontSize: '14px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#00d2ff' });
+
+        // Evento temporal cíclico
+        this.time.addEvent({ delay: 1000, callback: this.updateClock, loop: true, callbackScope: this });
+    }
+
+    iniciarNivel() {
+        this.listaBandejas = [];
+        this.bandejaSeleccionada = null;
+
+        let numBandejas = 3 + ((nivelActual - 1) * 2);
+        const cols = 3;
+        
+        for (let i = 0; i < numBandejas; i++) {
+            let row = Math.floor(i / cols);
+            let col = i % cols;
+            let x = 160 + (col * 240);
+            let y = 190 + (row * 160);
+
+            let sprite = this.add.image(x, y, 'bandejaTex').setInteractive();
+            
+            let bObj = {
+                sprite: sprite,
+                id: i + 1,
+                humedad: 70, 
+                larvas: 1000,
+                maduracion: 0,
+                completada: false,
+                muertas: 0,
+                barra: this.add.graphics(),
+                txtInfo: this.add.text(x - 55, y - 10, '', { 
+                    fontSize: '12px', fontFamily: 'monospace', fill: '#80ff80', lineSpacing: 4 
+                }).setDepth(5)
+            };
+
+            sprite.on('pointerdown', () => { this.bandejaSeleccionada = bObj; });
+            this.listaBandejas.push(bObj);
+        }
+    }
+
+    procesarMezcla(bandeja) {
+        if (this.juegoTerminado) return;
+
+        let dist = Phaser.Math.Distance.Between(this.granjero.x, this.granjero.y, bandeja.sprite.x, bandeja.sprite.y);
+        
+        if (dist < 110) {
+            if (bandeja.completada) return;
+
+            if (this.valorAlimentoCargado !== 0) {
+                bandeja.humedad += this.valorAlimentoCargado;
+                bandeja.humedad = Phaser.Math.Clamp(bandeja.humedad, 0, 100);
+                
+                bandeja.sprite.setTint(0x00ff66);
+                this.time.delayedCall(150, () => { if(bandeja.sprite) bandeja.sprite.clearTint(); });
+            }
+        } else {
+            this.granjero.setTint(0xff3333);
+            this.time.delayedCall(200, () => this.granjero.clearTint());
+        }
+    }
+
+    updateClock() {
+        if (this.juegoTerminado) return;
+        this.tiempoRestante--;
+        
+        this.listaBandejas.forEach(b => {
+            if (b.completada) return;
+            b.humedad -= 0.8; 
+            
+            if (b.humedad >= 61 && b.humedad <= 80) {
+                b.maduracion += 1.0;
+            } else if (b.humedad < 61) {
+                b.maduracion += 0.5;
+                b.larvas -= 2;      
+                b.muertas += 2;
+            }
+            
+            if (b.larvas < 0) b.larvas = 0;
+            if (b.maduracion >= 100) { b.maduracion = 100; b.completada = true; }
+        });
+
+        if (this.tiempoRestante <= 0) this.finalizarNivel();
+    }
+
+    update() {
+        if (this.juegoTerminado) return;
+        
+        let dist = Phaser.Math.Distance.Between(this.granjero.x, this.granjero.y, this.destino.x, this.destino.y);
+        if (this.granjero.body.speed > 0 && dist < 10) {
+            this.granjero.body.reset(this.destino.x, this.destino.y);
+        }
+
+        this.textoScore.setText(`🧬 PROTOCOLO BIO-INDUSTRIAL // NIVEL 0${nivelActual}`);
+        
+        let seleccionStatus = this.bandejaSeleccionada ? `LOTE #0${this.bandejaSeleccionada.id}` : "SELECCIONE OBJETIVO";
+        this.textoHUD.setText(`Carga Carretilla : [ ${this.nombreAlimentoCargado} ]\nEstado Monitoreo: [ ${seleccionStatus} ]\nPuntos Globales : [ ${puntuacionAcumulada} PTS ]`);
+
+        // Barra Cronológica Superior
+        this.barraProgresoDias.clear();
+        let diasSimulados = Math.floor(((180 - this.tiempoRestante) / 180) * 30) + 1;
+        if (diasSimulados > 30) diasSimulados = 30;
+        
+        this.barraProgresoDias.fillStyle(0x111c11);
+        this.barraProgresoDias.fillRect(400, 24, 260, 14);
+        this.barraProgresoDias.lineStyle(1, 0x00d2ff, 0.5);
+        this.barraProgresoDias.strokeRect(400, 24, 260, 14);
+        
+        let porcentajeTiempo = (180 - this.tiempoRestante) / 180;
+        this.barraProgresoDias.fillStyle(0x00d2ff);
+        this.barraProgresoDias.fillRect(402, 26, 256 * porcentajeTiempo, 10);
+        
+        this.textoDias.setText(`DÍA ${diasSimulados.toString().padStart(2, '0')}/30`);
+
+        // Dibujado Telemétrico de las Bandejas
+        this.listaBandejas.forEach(b => {
+            b.barra.clear();
+            b.barra.fillStyle(0x111811); 
+            b.barra.fillRect(b.sprite.x - 55, b.sprite.y + 18, 110, 8);
+            
+            b.barra.lineStyle(1, 0xffffff, 0.3);
+            b.barra.strokeRect(b.sprite.x - 55 + 61, b.sprite.y + 16, 19, 12);
+
+            let col = 0x00ff66; 
+            if (b.humedad < 61) col = 0xff3333;      
+            else if (b.humedad > 80) col = 0xffcc00; 
+
+            b.barra.fillStyle(col);
+            b.barra.fillRect(b.sprite.x - 55, b.sprite.y + 18, b.humedad * 1.1, 8);
+            
+            if (this.bandejaSeleccionada && this.bandejaSeleccionada.id === b.id) {
+                b.barra.lineStyle(2, 0x00d2ff, 1);
+                b.barra.strokeRoundedRect(b.sprite.x - 75, b.sprite.y - 45, 150, 90, 8);
+                b.barra.fillStyle(0x00d2ff);
+                b.barra.fillRect(b.sprite.x - 78, b.sprite.y - 48, 10, 3);
+                b.barra.fillRect(b.sprite.x - 78, b.sprite.y - 48, 3, 10);
+            }
+
+            if (b.completada) {
+                b.txtInfo.setText(` LOTE #0${b.id} OK\n ─────────\n PUPAE READY\n UNIT: ${b.larvas.toFixed(0)}`);
+                b.txtInfo.setColor('#00ff66');
+            } else {
+                let statusLabel = b.humedad < 61 ? "CRIT_DRY" : (b.humedad > 80 ? "SATURAT" : "OPTIMAL");
+                b.txtInfo.setText(` LOTE #0${b.id} [${statusLabel}]\n ─────────\n HMD: ${b.humedad.toFixed(1)}%\n MAD: ${b.maduracion.toFixed(1)}%`);
+                b.txtInfo.setColor(col === 0xff3333 ? '#ff8888' : (col === 0xffcc00 ? '#ffffaa' : '#bcffbc'));
+            }
+        });
+    }
+
+    finalizarNivel() {
+        this.juegoTerminado = true;
+        let ptsNivel = 0;
+
+        this.listaBandejas.forEach(b => {
+            if (b.completada) ptsNivel += (b.larvas * 10);
+            ptsNivel -= (b.muertas * 5);    
+        });
+        
+        puntuacionAcumulada += ptsNivel;
+
+        if (nivelActual < 5) {
+            alert(`// INFORME DE RENDIMIENTO - LOTE 0${nivelActual} //\n\nResultados:\nEficiencia: +${ptsNivel} PTS.\nCargando siguiente fase...`);
+            nivelActual++;
+            // En vez de recargar funciones locas, simplemente reiniciamos la escena limpia
+            this.scene.restart();
+        } else {
+            alert(`// SIMULACIÓN COMPLETADA CON ÉXITO //\n\nEVALUACIÓN FINAL: ${puntuacionAcumulada} PUNTOS.`);
+            nivelActual = 1;
+            puntuacionAcumulada = 0;
+            this.scene.start('MenuScene'); // Regresa al menú al terminar todo
+        }
+    }
+}
+
+// ============================================================================
+// CONFIGURACIÓN CENTRAL DE PHASER 3
+// ============================================================================
+const config = {
+    type: Phaser.AUTO,
+    width: 1000,
+    height: 700,
+    parent: 'game-container',
+    physics: { default: 'arcade', arcade: { debug: false } },
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    // El motor ahora lee un array ordenado de escenas independientes:
+    scene: [MenuScene, GameScene] 
+};
+
+const game = new Phaser.Game(config);
+</script>
+
+</body>
+</html>
