@@ -244,11 +244,11 @@ class GameScene extends Phaser.Scene {
         if (num > 6) num = 6;
         for (let i = 0; i < num; i++) {
             let x = 150 + ((i % 3) * 215);
-            let y = 195 + (Math.floor(i / 3) * 220);
+            let y = 235 + (Math.floor(i / 3) * 220);
             let sprite = this.add.image(x, y, 'bandejaTex').setInteractive();
             let b = {
                 sprite: sprite, id: i + 1, humedad: 70, larvas: 1000, maduracion: 0, completada: false, muertas: 0, barra: this.add.graphics(),
-                txtInfo: this.add.text(x - 78, y - 88, '', { fontSize: '15px', fontFamily: 'monospace', fill: '#80ff80', fontWeight: 'bold', lineSpacing: 4 }).setDepth(5)
+                txtInfo: this.add.text(x - 70, y - 40, '', { fontSize: '15px', fontFamily: 'monospace', fill: '#80ff80', fontWeight: 'bold', lineSpacing: 4 }).setDepth(5)
             };
             sprite.on('pointerdown', () => this.bandejaSeleccionada = b);
             this.listaBandejas.push(b);
