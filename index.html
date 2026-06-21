@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>BSF Simulator - Pro Edition</title>
+    <title>BSF Simulator - Scaled & Audio Edition</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #060b06; overflow: hidden; font-family: 'Courier New', Courier, monospace; }
@@ -20,6 +20,90 @@
     <div id="game-container"></div>
 
 <script>
+// ============================================================================
+// SINTETIZADOR NATIVO DE AUDIO (WEB AUDIO API) - SIN ARCHIVOS EXTERNOS
+// ============================================================================
+const AudioFX = {
+    ctx: null,
+    bgmInterval: null,
+    init() {
+        if (!this.ctx) {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    },
+    startBGM() {
+        this.init();
+        if (this.bgmInterval) return;
+        let step = 0;
+        // Bucle de música: Genera una atmósfera techno/industrial baja
+        this.bgmInterval = setInterval(() => {
+            try {
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                let filter = this.ctx.createBiquadFilter();
+                
+                osc.type = 'sawtooth';
+                // Secuencia de notas bajas de sintetizador
+                let notas = [55, 55, 65.41, 48.99, 55, 55, 73.42, 48.99];
+                osc.frequency.setValueAtTime(notas[step % notas.length], this.ctx.currentTime);
+                
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(180, this.ctx.currentTime);
+                
+                gain.gain.setValueAtTime(0.03, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.45);
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.45);
+                step++;
+            } catch(e) {}
+        }, 550);
+    },
+    playMix() {
+        this.init();
+        // Sonido de Inyección/Mezcla: Frecuencia ascendente tipo cyber
+        let osc = this.ctx.createOscillator();
+        let gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(700, this.ctx.currentTime + 0.15);
+        
+        gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.15);
+        
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.15);
+    },
+    playWin() {
+        this.init();
+        // Fanfarria de victoria: Arpegio triunfal ascendente
+        let notas = [261.63, 329.63, 392.00, 523.25, 659.25]; 
+        notas.forEach((freq, idx) => {
+            let osc = this.ctx.createOscillator();
+            let gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime + (idx * 0.08));
+            
+            gain.gain.setValueAtTime(0.15, this.ctx.currentTime + (idx * 0.08));
+            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + (idx * 0.08) + 0.25);
+            
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(this.ctx.currentTime + (idx * 0.08));
+            osc.stop(this.ctx.currentTime + (idx * 0.08) + 0.25);
+        });
+    }
+};
+
+// ============================================================================
+// CONFIGURACIÓN GLOBAL DEL JUEGO
+// ============================================================================
 let nivelActual = 1;
 let puntuacionAcumulada = 0;
 
@@ -30,11 +114,20 @@ class MenuScene extends Phaser.Scene {
         grid.lineStyle(1, 0x112511, 1);
         for (let x = 0; x < 1100; x += 40) grid.lineBetween(x, 0, x, 600);
         for (let y = 0; y < 600; y += 40) grid.lineBetween(0, y, 1100, y);
-        this.add.text(550, 220, "BSF SIMULATOR", { fontSize: '52px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' }).setOrigin(0.5).setStroke('#003311', 8);
-        this.add.text(550, 280, "// BIOMASS INDUSTRIAL CORE //", { fontSize: '15px', fontFamily: 'monospace', fill: '#00d2ff' }).setOrigin(0.5);
-        let btn = this.add.rectangle(550, 420, 320, 60, 0x142214).setInteractive().setStrokeStyle(2, 0x00ff66, 0.8);
-        let txt = this.add.text(550, 420, "[ INICIAR PROTOCOLO ]", { fontSize: '15px', fontFamily: 'monospace', fill: '#00ff66' }).setOrigin(0.5);
-        btn.on('pointerdown', () => { this.cameras.main.flash(300, 0, 255, 102); this.time.delayedCall(200, () => this.scene.start('GameScene')); });
+
+        // AJUSTE +50%: Títulos y Textos más masivos
+        this.add.text(550, 200, "BSF SIMULATOR", { fontSize: '78px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' }).setOrigin(0.5).setStroke('#003311', 10);
+        this.add.text(550, 270, "// BIOMASS INDUSTRIAL CORE //", { fontSize: '22px', fontFamily: 'monospace', fill: '#00d2ff' }).setOrigin(0.5);
+        
+        // AJUSTE +50%: Botón de inicio gigante para pantallas táctiles (480x90)
+        let btn = this.add.rectangle(550, 430, 480, 90, 0x142214).setInteractive().setStrokeStyle(3, 0x00ff66, 0.8);
+        let txt = this.add.text(550, 430, "[ INICIAR PROTOCOLO ]", { fontSize: '22px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' }).setOrigin(0.5);
+        
+        btn.on('pointerdown', () => { 
+            AudioFX.startBGM(); // Desbloquea y arranca el audio por interacción nativa
+            this.cameras.main.flash(300, 0, 255, 102); 
+            this.time.delayedCall(200, () => this.scene.start('GameScene')); 
+        });
     }
 }
 
@@ -48,8 +141,8 @@ class GameScene extends Phaser.Scene {
         this.bandejaSeleccionada = null;
         this.valorAlimentoCargado = 0; 
         this.nombreAlimentoCargado = "VACÍO";
+        this.botonesAlimentoRefs = []; // Almacén para gestionar iluminaciones de la UI
 
-        // Fondo y Texturas
         let grid = this.add.graphics();
         grid.lineStyle(1, 0x112511, 1);
         for (let x = 0; x < 900; x += 40) grid.lineBetween(x, 0, x, 600);
@@ -70,12 +163,11 @@ class GameScene extends Phaser.Scene {
         this.destino = new Phaser.Math.Vector2(450, 300);
         this.barraProgresoDias = this.add.graphics().setDepth(15);
 
-        // UI Panel Derecho
+        // Panel Lateral de Control
         this.add.graphics().fillStyle(0x091109, 0.95).fillRect(900, 0, 200, 600).lineStyle(2, 0x1f3d1f).lineBetween(900, 0, 900, 600);
         
         this.iniciarNivel();
 
-        // Movimiento
         this.input.on('pointerdown', (pointer, gameObjects) => {
             if (this.juegoTerminado) return;
             if (gameObjects.length > 0 && gameObjects[0].texture && gameObjects[0].texture.key === 'bandejaTex') {
@@ -91,7 +183,9 @@ class GameScene extends Phaser.Scene {
             }
         });
 
-        // Panel Alimentos
+        // ============================================================================
+        // BOTONES DE ALIMENTO (AJUSTE +50% EN ALTO Y TEXTOS + DESTACADO VISUAL)
+        // ============================================================================
         const alims = [
             { label: "⚡ HUM +5.0%", val: 5, col: 0x00ff66 },
             { label: "🟢 HUM +2.5%", val: 2.5, col: 0x00aa44 },
@@ -100,23 +194,45 @@ class GameScene extends Phaser.Scene {
             { label: "🔴 SEC -2.5%", val: -2.5, col: 0xcc3300 },
             { label: "🔥 SEC -5.0%", val: -5, col: 0xff3333 }
         ];
+
         alims.forEach((a, i) => {
-            let btn = this.add.rectangle(1000, 80 + (i * 65), 175, 45, 0x142214).setInteractive().setStrokeStyle(1, a.col, 0.5);
-            this.add.text(920, 72 + (i * 65), a.label, { fontSize: '11px', fontFamily: 'monospace', fill: '#fff' });
-            btn.on('pointerdown', () => { this.valorAlimentoCargado = a.val; this.nombreAlimentoCargado = a.label.substring(2); this.cameras.main.shake(50, 0.001); });
+            let yPos = 65 + (i * 68);
+            // Botones maximizados a 190px de ancho y 62px de alto (Casi +50%)
+            let btnBox = this.add.rectangle(1000, yPos, 190, 62, 0x142214).setInteractive().setStrokeStyle(1, a.col, 0.4);
+            let btnTxt = this.add.text(912, yPos - 10, a.label, { fontSize: '16px', fontFamily: 'monospace', fill: '#ffffff', fontWeight: 'bold' });
+            
+            this.botonesAlimentoRefs.push({ box: btnBox, txt: btnTxt, config: a });
+
+            btnBox.on('pointerdown', () => {
+                this.valorAlimentoCargado = a.val;
+                this.nombreAlimentoCargado = a.label.substring(2);
+                this.cameras.main.shake(30, 0.001);
+                
+                // Sistema de Destacado: Limpia los otros y enciende el seleccionado
+                this.botonesAlimentoRefs.forEach(b => {
+                    b.box.setFillStyle(0x142214);
+                    b.box.setStrokeStyle(1, b.config.col, 0.4);
+                    b.txt.setColor('#ffffff');
+                });
+                btnBox.setFillStyle(0x1a331a); // Fondo más claro de actividad
+                btnBox.setStrokeStyle(4, a.col, 1);    // Borde grueso de alta visibilidad
+                btnTxt.setColor('#00ff66');            // Texto brillante
+            });
         });
 
-        // BOTÓN MEZCLAR BANDEJA
-        let btnMezclar = this.add.rectangle(1000, 520, 175, 55, 0x00ff66).setInteractive();
-        this.add.text(925, 512, "MEZCLAR BANDEJA", { fontSize: '13px', fontFamily: 'monospace', fill: '#000', fontWeight: 'bold' });
+        // AJUSTE +50%: BOTÓN MEZCLAR BANDEJA GRANDE (Alto 80px, Texto 20px)
+        let btnMezclar = this.add.rectangle(1000, 525, 190, 80, 0x00ff66).setInteractive();
+        let txtMezclar = this.add.text(1000, 525, "MEZCLAR\nBANDEJA", { fontSize: '20px', fontFamily: 'monospace', fill: '#000000', fontWeight: 'bold', align: 'center' }).setOrigin(0.5);
+        
         btnMezclar.on('pointerdown', () => {
             if (this.bandejaSeleccionada) this.procesarMezcla(this.bandejaSeleccionada);
             else this.cameras.main.flash(200, 100, 0, 0);
         });
 
-        this.textoScore = this.add.text(25, 20, '', { fontSize: '16px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' });
-        this.textoHUD = this.add.text(25, 45, '', { fontSize: '11px', fontFamily: 'monospace', fill: '#a0bfa0' });
-        this.textoDias = this.add.text(770, 23, '', { fontSize: '12px', fontFamily: 'monospace', fill: '#00d2ff' });
+        // AJUSTE +50%: Textos del HUD de Monitoreo General
+        this.textoScore = this.add.text(25, 20, '', { fontSize: '24px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' });
+        this.textoHUD = this.add.text(25, 55, '', { fontSize: '16px', fontFamily: 'monospace', fill: '#a0bfa0', lineSpacing: 4 });
+        this.textoDias = this.add.text(760, 23, '', { fontSize: '18px', fontFamily: 'monospace', fill: '#00d2ff', fontWeight: 'bold' });
 
         this.time.addEvent({ delay: 1000, callback: this.updateClock, loop: true, callbackScope: this });
     }
@@ -128,11 +244,12 @@ class GameScene extends Phaser.Scene {
         if (num > 6) num = 6;
         for (let i = 0; i < num; i++) {
             let x = 180 + ((i % 3) * 280);
-            let y = 180 + (Math.floor(i / 3) * 200);
+            let y = 200 + (Math.floor(i / 3) * 210);
             let sprite = this.add.image(x, y, 'bandejaTex').setInteractive();
             let b = {
                 sprite: sprite, id: i + 1, humedad: 70, larvas: 1000, maduracion: 0, completada: false, muertas: 0, barra: this.add.graphics(),
-                txtInfo: this.add.text(x - 60, y - 35, '', { fontSize: '11px', fontFamily: 'monospace', fill: '#80ff80', lineSpacing: 3 }).setDepth(5)
+                // AJUSTE +50%: Fuentes de la bandeja escaladas y reubicadas más arriba (y - 75) para no encimarse
+                txtInfo: this.add.text(x - 65, y - 75, '', { fontSize: '16px', fontFamily: 'monospace', fill: '#80ff80', lineSpacing: 3 }).setDepth(5)
             };
             sprite.on('pointerdown', () => this.bandejaSeleccionada = b);
             this.listaBandejas.push(b);
@@ -145,6 +262,7 @@ class GameScene extends Phaser.Scene {
             if (this.valorAlimentoCargado !== 0) {
                 b.humedad = Phaser.Math.Clamp(b.humedad + this.valorAlimentoCargado, 0, 100);
                 b.sprite.setTint(0x00ff66);
+                AudioFX.playMix(); // EFECTO DE SONIDO: Mezcla exitosa
                 this.time.delayedCall(150, () => b.sprite.clearTint());
             }
         } else {
@@ -164,9 +282,8 @@ class GameScene extends Phaser.Scene {
             if (b.maduracion >= 100) { b.maduracion = 100; b.completada = true; }
         });
 
-        // VERIFICACIÓN DE VICTORIA TEMPRANA
         if (this.listaBandejas.every(b => b.completada)) {
-            this.finalizarNivel(true); // Enviar 'true' para indicar victoria temprana
+            this.finalizarNivel(true); 
         } else if (this.tiempoRestante <= 0) {
             this.finalizarNivel(false);
         }
@@ -177,7 +294,7 @@ class GameScene extends Phaser.Scene {
         if (this.granjero.body.speed > 0 && Phaser.Math.Distance.Between(this.granjero.x, this.granjero.y, this.destino.x, this.destino.y) < 10) this.granjero.body.reset(this.destino.x, this.destino.y);
 
         this.textoScore.setText(`PROTOCOLO NIVEL 0${nivelActual}`);
-        this.textoHUD.setText(`Carga: [ ${this.nombreAlimentoCargado} ]\nLote : [ ${this.bandejaSeleccionada ? '0'+this.bandejaSeleccionada.id : '---'} ]\nPuntos: [ ${puntuacionAcumulada} ]`);
+        this.textoHUD.setText(`Carga : [ ${this.nombreAlimentoCargado} ]\nLote  : [ ${this.bandejaSeleccionada ? '0'+this.bandejaSeleccionada.id : '---'} ]\nPuntos: [ ${puntuacionAcumulada} ]`);
 
         this.barraProgresoDias.clear().fillStyle(0x111c11).fillRect(490, 24, 260, 14).lineStyle(1, 0x00d2ff, 0.5).strokeRect(490, 24, 260, 14);
         this.barraProgresoDias.fillStyle(0x00d2ff).fillRect(492, 26, 256 * ((180 - this.tiempoRestante) / 180), 10);
@@ -185,16 +302,15 @@ class GameScene extends Phaser.Scene {
         this.textoDias.setText(`DÍA ${diaAct > 30 ? 30 : diaAct.toString().padStart(2, '0')}/30`);
 
         this.listaBandejas.forEach(b => {
-            b.barra.clear().fillStyle(0x000).fillRect(b.sprite.x - 55, b.sprite.y + 18, 110, 8);
-            b.barra.lineStyle(1, 0xffffff, 0.2).strokeRect(b.sprite.x - 55 + 61, b.sprite.y + 16, 19, 12);
+            b.barra.clear().fillStyle(0x000000).fillRect(b.sprite.x - 55, b.sprite.y + 22, 110, 10);
             let col = b.humedad < 61 ? 0xff3333 : (b.humedad > 80 ? 0xffcc00 : 0x00ff66);
-            b.barra.fillStyle(col).fillRect(b.sprite.x - 55, b.sprite.y + 18, b.humedad * 1.1, 8);
-            if (this.bandejaSeleccionada && this.bandejaSeleccionada.id === b.id) b.barra.lineStyle(2, 0x00d2ff).strokeRoundedRect(b.sprite.x - 75, b.sprite.y - 45, 150, 90, 8);
+            b.barra.fillStyle(col).fillRect(b.sprite.x - 55, b.sprite.y + 22, b.humedad * 1.1, 10);
+            if (this.bandejaSeleccionada && this.bandejaSeleccionada.id === b.id) b.barra.lineStyle(3, 0x00d2ff).strokeRoundedRect(b.sprite.x - 75, b.sprite.y - 48, 150, 96, 8);
 
             if (b.completada) {
                 b.txtInfo.setText(`LOTE #0${b.id} READY\nPOB: ${b.larvas.toFixed(0)}`).setColor('#00ff66');
             } else {
-                b.txtInfo.setText(`LOTE #0${b.id}\nHUM: ${b.humedad.toFixed(1)}%\nMAD: ${b.maduracion.toFixed(1)}%`).setColor(col === 0xff3333 ? '#ff8888' : '#fff');
+                b.txtInfo.setText(`LOTE #0${b.id}\nHUM: ${b.humedad.toFixed(1)}%\nMAD: ${b.maduracion.toFixed(1)}%`).setColor(col === 0xff3333 ? '#ff8888' : '#ffffff');
             }
         });
     }
@@ -216,6 +332,7 @@ class GameScene extends Phaser.Scene {
                 bonus = diasRestantes * 100;
                 ptsNivel += bonus;
             }
+            AudioFX.playWin(); // EFECTO DE SONIDO: Celebración de nivel completado
         }
         
         puntuacionAcumulada += ptsNivel;
@@ -223,13 +340,16 @@ class GameScene extends Phaser.Scene {
         let msg = `// REPORTE LOTE 0${nivelActual} //\n\n`;
         msg += victoriaTemprana ? `¡COSECHA ANTICIPADA!\nBono Tiempo: +${bonus} PTS\n` : `TIEMPO AGOTADO.\n`;
         msg += `Total Ronda: ${ptsNivel} PTS.`;
-
-        if (nivelActual < 5) {
-            alert(msg); nivelActual++; this.scene.restart();
-        } else {
-            alert(`// SIMULACIÓN FINALIZADA //\n\nPUNTAJE FINAL: ${puntuacionAcumulada}`);
-            nivelActual = 1; puntuacionAcumulada = 0; this.scene.start('MenuScene');
-        }
+        
+        this.time.delayedCall(300, () => {
+            alert(msg);
+            if (nivelActual < 5) {
+                nivelActual++; this.scene.restart();
+            } else {
+                alert(`// SIMULACIÓN FINALIZADA //\n\nPUNTAJE FINAL: ${puntuacionAcumulada}`);
+                nivelActual = 1; puntuacionAcumulada = 0; this.scene.start('MenuScene');
+            }
+        });
     }
 }
 
