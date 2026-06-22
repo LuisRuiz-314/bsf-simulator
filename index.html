@@ -140,6 +140,12 @@ class GameScene extends Phaser.Scene {
         this.nombreAlimentoCargado = "VACÍO";
         this.botonesAlimentoRefs = [];
         this.bgmStep = 0;
+		// ============================================================================
+        // CONFIGURACIÓN DE PAUSA Y TASAS PERSONALIZABLES
+        // ============================================================================
+        this.juegoPausado = false;
+        this.tasaMuerteLarvas = 2; // Cantidad de larvas que mueren por segundo si está SECO (<61%)
+        this.tasaFugaLarvas = 4;   // ¡NUEVO! Cantidad de larvas que escapan si está MUY HÚMEDO (>80%)
 
         // 1. Reloj de música de fondo
         this.bgmTimer = this.time.addEvent({
@@ -219,14 +225,61 @@ class GameScene extends Phaser.Scene {
             });
         });
 
-        let btnMezclar = this.add.rectangle(840, 485, 215, 75, 0x00ff66).setInteractive();
-        this.add.text(840, 485, "MEZCLAR\nBANDEJA", { fontSize: '22px', fontFamily: 'monospace', fill: '#000000', fontWeight: 'bold', align: 'center' }).setOrigin(0.5);
+        let btnMezclar = this.add.rectangle(840, 495, 215, 75, 0x00ff66).setInteractive();
+        this.add.text(840, 495, "MEZCLAR\nBANDEJA", { fontSize: '22px', fontFamily: 'monospace', fill: '#000000', fontWeight: 'bold', align: 'center' }).setOrigin(0.5);
         
         btnMezclar.on('pointerdown', () => {
             if (this.bandejaSeleccionada) this.procesarMezcla(this.bandejaSeleccionada);
             else this.cameras.main.flash(200, 100, 0, 0);
         });
 
+		// BOTÓN EN EL PANEL LATERAL
+        let btnPausa = this.add.rectangle(840, 428, 215, 38, 0x00d2ff).setInteractive();
+        let txtBtnPausa = this.add.text(840, 428, "PAUSA / REGLAS", { fontSize: '14px', fontFamily: 'monospace', fill: '#000000', fontWeight: 'bold' }).setOrigin(0.5);
+
+        // INTERFAZ DE LA VENTANA DE PAUSA (Oculta por defecto)
+        this.containerPausa = this.add.container(0, 0).setDepth(100).setVisible(false);
+        
+        // Fondo oscuro translúcido que cubre la pantalla
+        let bgModal = this.add.graphics();
+        bgModal.fillStyle(0x060b06, 0.95).fillRect(0, 0, 960, 540);
+        bgModal.lineStyle(3, 0x00ff66, 1).strokeRect(180, 80, 600, 380);
+        
+        // Texto con las reglas oficiales
+        let textoReglas = this.add.text(480, 240, 
+            "=== MANUAL DE PROTOCOLO BIO-INDUSTRIAL ===\n\n" +
+            "• HUMEDAD ÓPTIMA: Mantén el rango entre 61% y 80%.\n" +
+            "• ZONA SECA (<61%): Las larvas MUEREN por deshidratación.\n" +
+            "• ZONA INUNDADA (>80%): Las larvas ESCAPAN de la bandeja.\n\n" +
+            "• OPERACIÓN: Selecciona un insumo químico/orgánico a la\n" +
+            "  derecha, acércate a una bandeja y presiona [MEZCLAR].\n" +
+            "• OBJETIVO: Madurar las larvas al 100% antes del Día 30.",
+            { fontSize: '16px', fontFamily: 'monospace', fill: '#ffffff', lineSpacing: 6, align: 'left' }
+        ).setOrigin(0.5);
+
+        // Botón para reanudar el juego
+        let btnCerrar = this.add.rectangle(480, 410, 220, 45, 0x00ff66).setInteractive();
+        let txtCerrar = this.add.text(480, 410, "[ REANUDAR ]", { fontSize: '18px', fontFamily: 'monospace', fill: '#000000', fontWeight: 'bold' }).setOrigin(0.5);
+
+        // Armamos el contenedor de pausa
+        this.containerPausa.add([bgModal, textoReglas, btnCerrar, txtCerrar]);
+
+        // LOGICA DE ACCIÓN DE LOS BOTONES
+        btnPausa.on('pointerdown', () => {
+            if (this.juegoTerminado) return;
+            this.juegoPausado = true;
+            this.physics.world.isPaused = true; // Congela el movimiento del avatar
+            this.bgmTimer.paused = true;        // Pausa los beats de música
+            this.containerPausa.setVisible(true);
+        });
+
+        btnCerrar.on('pointerdown', () => {
+            this.juegoPausado = false;
+            this.physics.world.isPaused = false;
+            this.bgmTimer.paused = false;
+            this.containerPausa.setVisible(false);
+        });
+		
         this.textoScore = this.add.text(25, 20, '', { fontSize: '24px', fontFamily: 'monospace', fill: '#00ff66', fontWeight: 'bold' });
         this.textoHUD = this.add.text(25, 55, '', { fontSize: '16px', fontFamily: 'monospace', fill: '#a0bfa0', lineSpacing: 5 });
         this.textoDias = this.add.text(610, 23, '', { fontSize: '18px', fontFamily: 'monospace', fill: '#00d2ff', fontWeight: 'bold' });
